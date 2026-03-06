@@ -1,0 +1,24 @@
+# Copilot Coding Agent — Environment Setup
+# This file configures the environment for the GitHub Copilot coding agent.
+# The coding agent runs in a GitHub Actions environment and uses these steps
+# to install dependencies and tools before working on the codebase.
+
+steps:
+  # Install Node.js 20
+  - uses: actions/setup-node@v4
+    with:
+      node-version: "20"
+
+  # Install project dependencies
+  - run: npm ci
+
+  # Install additional tools the coding agent might need
+  - run: |
+      npm install -g typescript ts-node
+      npm install -g @azure/static-web-apps-cli
+
+  # Verify the environment
+  - run: |
+      node --version
+      npm --version
+      tsc --version

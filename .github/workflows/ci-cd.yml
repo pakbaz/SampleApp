@@ -1,0 +1,191 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+  checks: write
+  pull-requests: write
+
+env:
+  NODE_VERSION: '20'
+
+jobs:
+  # ---------- Build & Lint ----------
+  build:
+    name: Build & Lint
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: SampleApp
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: SampleApp/package-lock.json
+
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run build
+
+  # ---------- Test ----------
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    needs: build
+    defaults:
+      run:
+        working-directory: SampleApp
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: SampleApp/package-lock.json
+
+      - run: npm ci
+      - run: npm run test:ci
+        env:
+          NODE_ENV: test
+
+      - name: Publish Test Results
+        uses: dorny/test-reporter@v1
+        if: always()
+        with:
+          name: Jest Tests
+          path: SampleApp/junit.xml
+          reporter: jest-junit
+
+      - name: Upload Coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: SampleApp/coverage/
+
+  # ---------- Security Scanning ----------
+  codeql:
+    name: CodeQL Analysis
+    runs-on: ubuntu-latest
+    needs: build
+    permissions:
+      security-events: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v3
+        with:
+          languages: javascript-typescript
+
+      - name: Perform CodeQL Analysis
+        uses: github/codeql-action/analyze@v3
+
+  dependency-review:
+    name: Dependency Review
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Dependency Review
+        uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: critical
+          deny-licenses: GPL-3.0
+
+  # ---------- Deploy to Staging ----------
+  deploy-staging:
+    name: Deploy to Staging
+    runs-on: ubuntu-latest
+    needs: [test, codeql]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    environment:
+      name: staging
+      url: https://team-task-tracker-staging.azurewebsites.net
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: SampleApp/package-lock.json
+
+      - run: npm ci --prefix SampleApp
+      - run: npm run build --prefix SampleApp
+
+      - name: Login to Azure
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Deploy to Azure App Service (Staging)
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: team-task-tracker
+          slot-name: staging
+          package: SampleApp
+
+  # ---------- Smoke Test ----------
+  smoke-test:
+    name: Smoke Test (Staging)
+    runs-on: ubuntu-latest
+    needs: deploy-staging
+
+    steps:
+      - name: Health Check
+        run: |
+          for i in {1..10}; do
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" https://team-task-tracker-staging.azurewebsites.net/health)
+            if [ "$STATUS" = "200" ]; then
+              echo "✅ Health check passed"
+              exit 0
+            fi
+            echo "Attempt $i: status $STATUS — retrying in 10s..."
+            sleep 10
+          done
+          echo "❌ Health check failed after 10 attempts"
+          exit 1
+
+      - name: API Status Check
+        run: |
+          curl -sf https://team-task-tracker-staging.azurewebsites.net/api/v1/status | jq .
+
+  # ---------- Deploy to Production ----------
+  deploy-production:
+    name: Deploy to Production
+    runs-on: ubuntu-latest
+    needs: smoke-test
+    environment:
+      name: production
+      url: https://team-task-tracker.azurewebsites.net
+
+    steps:
+      - name: Login to Azure
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Swap Staging → Production
+        uses: azure/cli@v2
+        with:
+          inlineScript: |
+            az webapp deployment slot swap \
+              --resource-group team-task-tracker-rg \
+              --name team-task-tracker \
+              --slot staging \
+              --target-slot production
