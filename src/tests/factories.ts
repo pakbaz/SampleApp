@@ -1,6 +1,7 @@
 import { randomUUID } from 'crypto';
 import { Task, CreateTaskInput } from '../models/task';
 import { Team, CreateTeamInput, TeamMember } from '../models/team';
+import { Comment, CreateCommentInput } from '../models/comment';
 
 /**
  * Factory helpers for creating test data.
@@ -65,6 +66,27 @@ export function createMockTeamInput(overrides?: Partial<CreateTeamInput>): Creat
   return {
     name: 'New Test Team',
     description: 'Created by test factory',
+    ...overrides,
+  };
+}
+
+export function createMockComment(overrides?: Partial<Comment>): Comment {
+  const now = new Date().toISOString();
+  return {
+    id: randomUUID(),
+    taskId: randomUUID(),
+    content: 'This is a test comment',
+    createdAt: now,
+    updatedAt: now,
+    createdBy: 'user-1',
+    authorName: 'Test User',
+    ...overrides,
+  };
+}
+
+export function createMockCommentInput(overrides?: Partial<CreateCommentInput>): CreateCommentInput {
+  return {
+    content: 'New test comment content',
     ...overrides,
   };
 }

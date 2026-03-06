@@ -17,6 +17,7 @@ import {
   getInMemoryTasks,
 } from '../utils/database';
 import { logger } from '../utils/logger';
+import commentRoutes from './comments';
 
 const router = Router();
 
@@ -224,5 +225,11 @@ router.delete('/:id', authorize('admin', 'team-lead'), async (req: Request, res:
     res.status(500).json(error('Unable to delete task. Please try again later.', 'TASK_DELETE_FAILED'));
   }
 });
+
+/**
+ * /api/v1/tasks/:taskId/comments
+ * Sub-resource: comments on a task.
+ */
+router.use('/:taskId/comments', commentRoutes);
 
 export default router;

@@ -5,6 +5,7 @@ let client: CosmosClient;
 let database: Database;
 let tasksContainer: Container;
 let teamsContainer: Container;
+let commentsContainer: Container;
 
 /**
  * Initialise the Azure Cosmos DB connection and ensure database/containers exist.
@@ -36,6 +37,12 @@ export async function initDatabase(): Promise<void> {
   });
   teamsContainer = teams;
 
+  const { container: comments } = await database.containers.createIfNotExists({
+    id: 'comments',
+    partitionKey: { paths: ['/taskId'] },
+  });
+  commentsContainer = comments;
+
   logger.info({ databaseId }, 'Connected to Azure Cosmos DB');
 }
 
@@ -47,11 +54,16 @@ export function getTeamsContainer(): Container {
   return teamsContainer;
 }
 
+export function getCommentsContainer(): Container {
+  return commentsContainer;
+}
+
 // ---------- In-Memory Fallback Store ----------
 // Used when Cosmos DB is not configured (local dev / demos)
 
 const inMemoryTasks: Map<string, Record<string, unknown>> = new Map();
 const inMemoryTeams: Map<string, Record<string, unknown>> = new Map();
+const inMemoryComments: Map<string, Record<string, unknown>> = new Map();
 
 export function getInMemoryTasks(): Map<string, Record<string, unknown>> {
   return inMemoryTasks;
@@ -59,6 +71,10 @@ export function getInMemoryTasks(): Map<string, Record<string, unknown>> {
 
 export function getInMemoryTeams(): Map<string, Record<string, unknown>> {
   return inMemoryTeams;
+}
+
+export function getInMemoryComments(): Map<string, Record<string, unknown>> {
+  return inMemoryComments;
 }
 
 /**
