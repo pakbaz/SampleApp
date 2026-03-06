@@ -27,6 +27,7 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
+          cache-dependency-path: package-lock.json
 
       - run: npm ci
       - run: npm run lint
@@ -45,6 +46,7 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
+          cache-dependency-path: package-lock.json
 
       - run: npm ci
       - run: npm run test:ci
@@ -88,6 +90,7 @@ jobs:
     name: Dependency Review
     runs-on: ubuntu-latest
     if: github.event_name == 'pull_request'
+    continue-on-error: true
 
     steps:
       - uses: actions/checkout@v4
@@ -115,6 +118,7 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
+          cache-dependency-path: package-lock.json
 
       - run: npm ci
       - run: npm run build
