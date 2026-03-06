@@ -19,9 +19,6 @@ jobs:
   build:
     name: Build & Lint
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: SampleApp
 
     steps:
       - uses: actions/checkout@v4
@@ -30,7 +27,6 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
-          cache-dependency-path: SampleApp/package-lock.json
 
       - run: npm ci
       - run: npm run lint
@@ -41,9 +37,6 @@ jobs:
     name: Test
     runs-on: ubuntu-latest
     needs: build
-    defaults:
-      run:
-        working-directory: SampleApp
 
     steps:
       - uses: actions/checkout@v4
@@ -52,7 +45,6 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
-          cache-dependency-path: SampleApp/package-lock.json
 
       - run: npm ci
       - run: npm run test:ci
@@ -64,14 +56,14 @@ jobs:
         if: always()
         with:
           name: Jest Tests
-          path: SampleApp/junit.xml
+          path: junit.xml
           reporter: jest-junit
 
       - name: Upload Coverage
         uses: actions/upload-artifact@v4
         with:
           name: coverage-report
-          path: SampleApp/coverage/
+          path: coverage/
 
   # ---------- Security Scanning ----------
   codeql:
@@ -123,10 +115,9 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
-          cache-dependency-path: SampleApp/package-lock.json
 
-      - run: npm ci --prefix SampleApp
-      - run: npm run build --prefix SampleApp
+      - run: npm ci
+      - run: npm run build
 
       - name: Login to Azure
         uses: azure/login@v2
@@ -138,7 +129,7 @@ jobs:
         with:
           app-name: team-task-tracker
           slot-name: staging
-          package: SampleApp
+          package: .
 
   # ---------- Smoke Test ----------
   smoke-test:
