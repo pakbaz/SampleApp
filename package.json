@@ -20,7 +20,7 @@
     "@azure/cosmos": "^4.2.0",
     "@azure/identity": "^4.5.0",
     "cors": "^2.8.5",
-    "express": "^4.21.1",
+    "express": "^4.22.2",
     "helmet": "^8.0.0",
     "passport": "^0.7.0",
     "passport-azure-ad": "^4.3.5",
